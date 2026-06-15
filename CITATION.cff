@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use Permit-to-Proof in academic work, please cite it as below."
+title: "Permit-to-Proof: a verifiable LLM system for environmental-permit compliance extraction"
+abstract: >-
+  Permit-to-Proof extracts compliance obligations from environmental permits
+  with a large language model and verifies every obligation against the source
+  text with a separate, deterministic, domain-aware verification layer before
+  it is trusted. It measures the error-detection lift the verification layer
+  adds over a raw LLM, calibrates per-obligation confidence, and quantifies the
+  resulting automation-versus-human-review trade-off.
+type: software
+authors:
+  - family-names: Patil
+    given-names: Kedar R.
+    affiliation: "University of the Cumberlands"
+keywords:
+  - large language models
+  - hallucination detection
+  - source grounding
+  - confidence calibration
+  - environmental compliance
+  - regulatory obligation extraction
+  - human-in-the-loop
+license: MIT
+version: 1.1.0
+date-released: 2026-06-14
+repository-code: "https://github.com/kedar-patil-engineer/permit-to-proof"

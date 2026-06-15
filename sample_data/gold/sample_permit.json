@@ -1,0 +1,24 @@
+{
+  "permit_id": "PTP-2026-0001",
+  "source_pdf": "sample_data/sample_permit.pdf",
+  "label_provenance": "ILLUSTRATIVE_AUTHOR_KNOWN",
+  "labeler": "project author (truth known from the permit generator)",
+  "notes": "ILLUSTRATIVE gold set for the bundled SYNTHETIC permit. The true obligations are known because the project authored the PDF (sample_data/make_sample_permit.py). This exists ONLY to exercise and self-test the evaluation harness end to end. It is NOT the expert answer key required by the paper (Part A5.4), which must be built by a domain expert on REAL permits with documented labelers and adjudication. Do not report these numbers as the paper's measured results.",
+  "obligations": [
+    {"gold_id": "G001", "description": "Nitrogen oxides (NOx) emissions from Boiler Unit B-1 shall not exceed 30 ppm, corrected to 15 percent oxygen, on a 30-day rolling average.", "parameter": "NOx", "limit_value": 30.0, "limit_unit": "ppm", "operator": "<=", "frequency": "continuous", "citation": "40 CFR 60.44c"},
+    {"gold_id": "G002", "description": "Sulfur dioxide (SO2) emissions from Boiler Unit B-1 shall not exceed 0.30 lb/MMBtu on a 30-day rolling average.", "parameter": "SO2", "limit_value": 0.30, "limit_unit": "lb/MMBtu", "operator": "<=", "frequency": "continuous", "citation": "40 CFR 60.43c"},
+    {"gold_id": "G003", "description": "Carbon monoxide (CO) emissions shall not exceed 100 ppm at the stack outlet.", "parameter": "CO", "limit_value": 100.0, "limit_unit": "ppm", "operator": "<=", "frequency": "continuous", "citation": "Condition 3.3"},
+    {"gold_id": "G004", "description": "Particulate matter (PM10) emissions shall not exceed 0.030 gr/dscf.", "parameter": "PM10", "limit_value": 0.030, "limit_unit": "gr/dscf", "operator": "<=", "frequency": "annual", "citation": "40 CFR 60.42c"},
+    {"gold_id": "G005", "description": "Volatile organic compounds (VOC) emissions from the coating line shall not exceed 25 tons/yr on a 12-month rolling total.", "parameter": "VOC", "limit_value": 25.0, "limit_unit": "tons/yr", "operator": "<=", "frequency": "monthly", "citation": "Condition 3.5"},
+    {"gold_id": "G006", "description": "Visible emissions from any stack shall not exceed 20 percent opacity.", "parameter": "Opacity", "limit_value": 20.0, "limit_unit": "%", "operator": "<=", "frequency": "continuous", "citation": "40 CFR 60.42"},
+    {"gold_id": "G007", "description": "The pH of the discharge from Outfall 001 shall be maintained between 6.0 and 9.0 standard units.", "parameter": "pH", "limit_value": 6.0, "limit_unit": "s.u.", "operator": "range", "frequency": "daily", "citation": "Condition 4.1"},
+    {"gold_id": "G008", "description": "Five-day biochemical oxygen demand (BOD5) shall not exceed 30 mg/L as a monthly average.", "parameter": "BOD5", "limit_value": 30.0, "limit_unit": "mg/L", "operator": "<=", "frequency": "weekly", "citation": "40 CFR 133.102"},
+    {"gold_id": "G009", "description": "Total suspended solids (TSS) shall not exceed 30 mg/L as a monthly average.", "parameter": "TSS", "limit_value": 30.0, "limit_unit": "mg/L", "operator": "<=", "frequency": "weekly", "citation": "40 CFR 133.102"},
+    {"gold_id": "G010", "description": "The temperature of the discharge shall not exceed 32 deg C.", "parameter": "Temperature", "limit_value": 32.0, "limit_unit": "deg C", "operator": "<=", "frequency": "daily", "citation": "Condition 4.4"},
+    {"gold_id": "G011", "description": "Fecal coliform bacteria shall not exceed 200 cfu/100 mL as a monthly geometric mean.", "parameter": "Fecal Coliform", "limit_value": 200.0, "limit_unit": "cfu/100 mL", "operator": "<=", "frequency": "monthly", "citation": "Condition 4.5"},
+    {"gold_id": "G012", "description": "The discharge flow from Outfall 001 shall not exceed 5.0 MGD.", "parameter": "Flow", "limit_value": 5.0, "limit_unit": "MGD", "operator": "<=", "frequency": "continuous", "citation": "Condition 4.6"},
+    {"gold_id": "G013", "description": "The permittee shall submit Discharge Monitoring Reports (DMRs) within 28 days after the end of each monitoring period.", "parameter": null, "deadline": "within 28 days", "citation": "40 CFR 122.41"},
+    {"gold_id": "G014", "description": "The permittee shall maintain all monitoring records, including calibration and maintenance logs, for a period of five years and make them available to the Administrator upon request.", "parameter": null, "citation": "40 CFR 122.41"},
+    {"gold_id": "G015", "description": "The permittee shall report any exceedance of an emission or effluent limit by telephone within 24 hours and in writing within 5 days of becoming aware of the exceedance.", "parameter": null, "deadline": "within 24 hours", "citation": "Condition 5.3"}
+  ]
+}

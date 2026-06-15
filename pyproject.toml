@@ -1,0 +1,48 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "permit-to-proof"
+version = "1.1.0"
+description = "A verifiable LLM system that extracts and source-grounds environmental-permit compliance obligations."
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+license = { text = "MIT" }
+authors = [{ name = "Kedar R. Patil" }]
+keywords = [
+  "llm", "hallucination-detection", "source-grounding",
+  "confidence-calibration", "environmental-compliance",
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "streamlit==1.58.0",
+  "pydantic==2.13.4",
+  "pdfplumber==0.11.9",
+  "reportlab==4.5.1",
+  "pandas==3.0.3",
+  "openai==2.41.1",
+  "requests==2.34.2",
+  "python-dotenv==1.2.2",
+]
+
+[project.optional-dependencies]
+# Needed only for the offline evaluation harness (figures + metrics export).
+eval = ["matplotlib==3.11.0", "numpy==2.4.6"]
+dev = ["pytest==9.1.0"]
+
+[project.scripts]
+permit-to-proof-eval = "evaluate:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.setuptools]
+packages = ["app", "app.core", "app.llm", "app.eval"]

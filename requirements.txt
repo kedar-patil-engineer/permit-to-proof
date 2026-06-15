@@ -1,0 +1,13 @@
+# Permit-to-Proof pinned dependencies (verified to install on Python 3.10-3.13).
+# Direct dependencies only; transitive versions resolve automatically.
+
+streamlit==1.58.0      # browser UI
+pydantic==2.13.4       # data contracts / schema validation
+pdfplumber==0.11.9     # PDF -> text with page numbers (ingest)
+reportlab==4.5.1       # generates the bundled synthetic sample permit
+pandas==3.0.3          # results table and CSV export
+openai==2.41.1         # optional hosted backend (only used if a key is set)
+requests==2.34.2       # optional local Ollama backend
+python-dotenv==1.2.2   # loads secrets from .env
+matplotlib==3.11.0     # evaluation figures (reliability diagram, trade-off curves)
+pytest==9.1.0          # test suite
