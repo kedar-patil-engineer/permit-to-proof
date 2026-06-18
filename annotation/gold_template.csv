@@ -1,0 +1,3 @@
+gold_id,parameter,limit_value,limit_unit,operator,frequency,deadline,citation,source_segment_id,is_obligation,description
+G001,NOx,30,ppm,<=,continuous,,40 CFR 60.44c,,TRUE,EXAMPLE ROW - delete me. Nitrogen oxides shall not exceed 30 ppm on a 30-day rolling average.
+G013,,,,,,within 28 days,40 CFR 122.41,,TRUE,EXAMPLE ROW - delete me. The permittee shall submit Discharge Monitoring Reports within 28 days after each monitoring period.
