@@ -77,7 +77,9 @@ _SCHEMA_HINT = (
 def build_user_prompt(segments: List[Segment]) -> str:
     """Build the extraction prompt from numbered permit segments."""
     lines = [
-        "Extract every compliance obligation from the permit segments below.",
+        "Extract EVERY compliance obligation from the permit segments below, "
+        "including every numeric emission or effluent limit. Do not summarize, "
+        "merge, or skip any limit.",
         "Return ONLY JSON matching this shape, with no commentary:",
         _SCHEMA_HINT,
         "",
@@ -86,6 +88,12 @@ def build_user_prompt(segments: List[Segment]) -> str:
         "- Set 'source_segment_id' to the id of the segment you took it from.",
         "- Use null for any field that does not apply.",
         "- Do not output anything that is not in the permit text.",
+        "- A segment beginning with 'TABLE:' is a table whose first line is the "
+        "column header. Treat EACH data row that states a limit, parameter, or "
+        "requirement as its OWN obligation. Use the header to fill parameter, "
+        "limit_value, limit_unit, and operator. When a row shows a pollutant and "
+        "a limit like 'sulfur dioxide | 1.2 lb/MMBtu', emit one obligation with "
+        "parameter 'SO2', limit_value 1.2, limit_unit 'lb/MMBtu', operator '<='.",
         "",
         "PERMIT SEGMENTS:",
     ]
@@ -237,7 +245,7 @@ def parse_obligations_payload(
 # Real permits can be hundreds of pages, far more than fits in one prompt. The
 # real backends therefore extract in batches of segments and accumulate the
 # results, keeping obligation ids unique across batches.
-DEFAULT_BATCH_SIZE = 25
+DEFAULT_BATCH_SIZE = 12
 
 
 def run_batched_extraction(segments, call, id_prefix, batch_size=DEFAULT_BATCH_SIZE):
