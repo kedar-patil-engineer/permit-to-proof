@@ -89,9 +89,12 @@ def test_expert_xlsx_adapter_maps_columns(tmp_path):
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Permit"
+    # Note: the "Applies to (unit / outfall / area)" header also contains the
+    # word "unit" — the adapter must still map the real "Unit" column.
     ws.append(["Obligation ID", "Permit ID", "Source quote (verbatim)", "Citation",
-               "Obligation type", "Applies to", "Parameter (pollutant)", "Operator",
-               "Limit value", "Unit", "Averaging period", "Frequency / deadline", "Notes"])
+               "Obligation type", "Applies to (unit / outfall / area)",
+               "Parameter (pollutant)", "Operator", "Limit value", "Unit",
+               "Averaging period", "Frequency / deadline", "Notes"])
     ws.append(["P1-001", "X1", "NOx shall not exceed 30 ppm", "p.10", "Emission limit",
                "Boiler B-1", "NOx", "≤", "30", "ppm", "30-day", "continuous", ""])
     ws.append(["P1-002", "X1", "pH maintained between 6.0 and 9.0", "Part I", "Emission limit",
@@ -105,7 +108,8 @@ def test_expert_xlsx_adapter_maps_columns(tmp_path):
     assert gs.label_provenance.value == "EXPERT_SINGLE"
     assert len(gs.obligations) == 3
     a, b, c = gs.obligations
-    assert a.parameter == "NOx" and a.limit_value == 30.0 and a.limit_unit == "ppm"
+    assert a.parameter == "NOx" and a.limit_value == 30.0
+    assert a.limit_unit == "ppm"          # the real Unit column, not "Boiler B-1"
     assert a.operator.value == "<="
     assert b.operator.value == "range" and b.limit_value == 6.0  # lower bound of a range
     assert c.parameter is None and c.limit_value is None and "DMR" in c.description

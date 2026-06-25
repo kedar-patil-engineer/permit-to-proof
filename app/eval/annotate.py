@@ -168,10 +168,25 @@ def _expert_value(value):
 
 
 def _find_col(header, *substrings):
-    for i, h in enumerate(header):
-        hl = (str(h) if h is not None else "").lower()
-        if any(sub in hl for sub in substrings):
-            return i
+    """Find a column by header, preferring exact then prefix then substring.
+
+    The preference order matters: a sheet can have both a 'Unit' column and an
+    'Applies to (unit / outfall / area)' column, so a naive substring match on
+    'unit' would grab the wrong one. Exact and prefix matches win first.
+    """
+    norm = [(str(h) if h is not None else "").strip().lower() for h in header]
+    for sub in substrings:                       # exact
+        for i, h in enumerate(norm):
+            if h == sub:
+                return i
+    for sub in substrings:                       # prefix
+        for i, h in enumerate(norm):
+            if h.startswith(sub):
+                return i
+    for sub in substrings:                       # substring
+        for i, h in enumerate(norm):
+            if sub in h:
+                return i
     return None
 
 
