@@ -206,12 +206,14 @@ def parse_obligations_payload(
     payload: Any,
     segments: List[Segment],
     id_prefix: str = "OB",
+    start_index: int = 0,
 ) -> List[Obligation]:
     """Turn a parsed model payload into a list of Obligations.
 
     Accepts either a dict with an 'obligations' list or a bare list. Anything
     unparseable yields an empty list rather than an exception, so a bad model
-    response never crashes the pipeline (B7).
+    response never crashes the pipeline (B7). start_index keeps obligation ids
+    unique when extraction is run in batches.
     """
     if isinstance(payload, dict):
         items = payload.get("obligations", [])
@@ -223,8 +225,38 @@ def parse_obligations_payload(
         items = []  # tolerate {"obligations": null} and other malformed shapes
 
     out: List[Obligation] = []
-    for idx, raw in enumerate(items):
+    n = start_index
+    for raw in items:
         if not isinstance(raw, dict):
             continue
-        out.append(parse_obligation(raw, "%s%04d" % (id_prefix, idx)))
+        out.append(parse_obligation(raw, "%s%04d" % (id_prefix, n)))
+        n += 1
     return out
+
+
+# Real permits can be hundreds of pages, far more than fits in one prompt. The
+# real backends therefore extract in batches of segments and accumulate the
+# results, keeping obligation ids unique across batches.
+DEFAULT_BATCH_SIZE = 25
+
+
+def run_batched_extraction(segments, call, id_prefix, batch_size=DEFAULT_BATCH_SIZE):
+    """Extract obligations from segments in batches.
+
+    `call` is a function that takes a list of segments and returns the model's
+    raw text response for that batch. Each batch is parsed defensively and the
+    obligations are concatenated. A batch that fails to parse contributes
+    nothing rather than crashing the whole run.
+    """
+    obligations: List[Obligation] = []
+    size = max(1, int(batch_size))
+    for start in range(0, len(segments), size):
+        batch = segments[start : start + size]
+        content = call(batch) or ""
+        payload = extract_json_object(content)
+        obligations.extend(
+            parse_obligations_payload(
+                payload, batch, id_prefix=id_prefix, start_index=len(obligations)
+            )
+        )
+    return obligations

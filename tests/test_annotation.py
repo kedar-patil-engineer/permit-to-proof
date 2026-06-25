@@ -5,7 +5,13 @@ import os
 import pytest
 
 from app.eval.agreement import cohen_kappa, inter_annotator_agreement
-from app.eval.annotate import csv_to_goldset, goldset_to_rows, rows_to_obligations, write_csv
+from app.eval.annotate import (
+    csv_to_goldset,
+    goldset_from_expert_xlsx,
+    goldset_to_rows,
+    rows_to_obligations,
+    write_csv,
+)
 from app.eval.gold import GoldSet, load_gold
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -73,6 +79,36 @@ def test_template_file_has_only_example_rows():
     template = os.path.join(ROOT, "annotation", "gold_template.csv")
     with pytest.raises(ValueError):  # all rows are EXAMPLE -> nothing to label
         csv_to_goldset(template, permit_id="X")
+
+
+# --- expert .xlsx workbook adapter ---------------------------------------
+
+def test_expert_xlsx_adapter_maps_columns(tmp_path):
+    openpyxl = pytest.importorskip("openpyxl")
+    ws_path = tmp_path / "expert.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Permit"
+    ws.append(["Obligation ID", "Permit ID", "Source quote (verbatim)", "Citation",
+               "Obligation type", "Applies to", "Parameter (pollutant)", "Operator",
+               "Limit value", "Unit", "Averaging period", "Frequency / deadline", "Notes"])
+    ws.append(["P1-001", "X1", "NOx shall not exceed 30 ppm", "p.10", "Emission limit",
+               "Boiler B-1", "NOx", "≤", "30", "ppm", "30-day", "continuous", ""])
+    ws.append(["P1-002", "X1", "pH maintained between 6.0 and 9.0", "Part I", "Emission limit",
+               "Outfall 001", "pH", "range", "6.0–9.0", "s.u.", "instant", "", ""])
+    ws.append(["P1-003", "X1", "Submit DMR each month", "Part II", "Reporting",
+               "Outfall 001", "", "n/a", "", "", "", "Monthly DMR", ""])
+    wb.save(str(ws_path))
+
+    gs = goldset_from_expert_xlsx(str(ws_path), "Permit", permit_id="X1",
+                                  provenance="EXPERT_SINGLE", labeler="Test")
+    assert gs.label_provenance.value == "EXPERT_SINGLE"
+    assert len(gs.obligations) == 3
+    a, b, c = gs.obligations
+    assert a.parameter == "NOx" and a.limit_value == 30.0 and a.limit_unit == "ppm"
+    assert a.operator.value == "<="
+    assert b.operator.value == "range" and b.limit_value == 6.0  # lower bound of a range
+    assert c.parameter is None and c.limit_value is None and "DMR" in c.description
 
 
 # --- inter-annotator agreement -------------------------------------------

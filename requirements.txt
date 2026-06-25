@@ -10,4 +10,5 @@ openai==2.41.1         # optional hosted backend (only used if a key is set)
 requests==2.34.2       # optional local Ollama backend
 python-dotenv==1.2.2   # loads secrets from .env
 matplotlib==3.11.0     # evaluation figures (reliability diagram, trade-off curves)
+openpyxl==3.1.5        # read expert annotation workbooks (.xlsx) into a gold key
 pytest==9.1.0          # test suite

@@ -6,11 +6,14 @@ import os
 
 import pytest
 
+import json
+
 from app.core.schema import Obligation, Segment
 from app.llm.base import (
     extract_json_object,
     parse_obligation,
     parse_obligations_payload,
+    run_batched_extraction,
 )
 from app.llm.mock import MockBackend
 from app.llm.ollama_backend import OllamaBackend
@@ -96,6 +99,37 @@ def test_parse_payload_tolerates_bad_records():
 def test_parse_payload_empty_on_non_payload():
     assert parse_obligations_payload(None, _segments()) == []
     assert parse_obligations_payload(42, _segments()) == []
+
+
+def test_run_batched_extraction_batches_and_unique_ids():
+    # six segments, batch size two -> three calls, ids continuous and unique
+    segs = _segments() * 3
+    seen = []
+
+    def call(batch):
+        seen.append(len(batch))
+        obs = [{"description": "d", "source_segment_id": batch[0].segment_id,
+                "source_quote": "x"} for _ in batch]
+        return json.dumps({"obligations": obs})
+
+    out = run_batched_extraction(segs, call, "OAI", batch_size=2)
+    assert seen == [2, 2, 2]
+    assert len(out) == 6
+    ids = [o.obligation_id for o in out]
+    assert len(set(ids)) == 6
+    assert ids[0] == "OAI0000" and ids[-1] == "OAI0005"
+
+
+def test_run_batched_extraction_survives_a_bad_batch():
+    segs = _segments() * 2  # four segments, batch size two -> two calls
+    state = {"n": 0}
+    def call(batch):
+        state["n"] += 1
+        if state["n"] == 1:
+            return "not json at all"  # first batch unparseable
+        return json.dumps({"obligations": [{"description": "ok", "source_quote": "x"}]})
+    out = run_batched_extraction(segs, call, "OB", batch_size=2)
+    assert len(out) == 1  # first batch contributed nothing, second contributed one
 
 
 def test_parse_payload_tolerates_null_obligations():

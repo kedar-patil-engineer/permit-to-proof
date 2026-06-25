@@ -14,10 +14,10 @@ from typing import List
 
 from app.core.schema import Obligation, Segment
 from app.llm.base import (
+    DEFAULT_BATCH_SIZE,
     SYSTEM_PROMPT,
     build_user_prompt,
-    extract_json_object,
-    parse_obligations_payload,
+    run_batched_extraction,
 )
 
 DEFAULT_MODEL = "gpt-4o-mini"
@@ -29,9 +29,11 @@ class OpenAIBackend:
     name = "OpenAI"
     DEFAULT_MODEL = DEFAULT_MODEL
 
-    def __init__(self, model: str = DEFAULT_MODEL, api_key: str | None = None):
+    def __init__(self, model: str = DEFAULT_MODEL, api_key: str | None = None,
+                 batch_size: int = DEFAULT_BATCH_SIZE):
         self.model = model or DEFAULT_MODEL
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        self.batch_size = batch_size
 
     @staticmethod
     def is_available() -> bool:
@@ -59,16 +61,17 @@ class OpenAIBackend:
 
     def extract_obligations(self, segments: List[Segment]) -> List[Obligation]:
         client = self._client()
-        prompt = build_user_prompt(segments)
-        response = client.chat.completions.create(
-            model=self.model,
-            temperature=0,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        content = response.choices[0].message.content or ""
-        payload = extract_json_object(content)
-        return parse_obligations_payload(payload, segments, id_prefix="OAI")
+
+        def call(batch):
+            response = client.chat.completions.create(
+                model=self.model,
+                temperature=0,
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": build_user_prompt(batch)},
+                ],
+            )
+            return response.choices[0].message.content or ""
+
+        return run_batched_extraction(segments, call, "OAI", self.batch_size)

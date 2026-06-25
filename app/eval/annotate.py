@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import re
 import sys
 from typing import Dict, List
 
@@ -133,6 +134,110 @@ def write_csv(rows: List[Dict], path: str) -> None:
         writer = csv.DictWriter(fh, fieldnames=CSV_COLUMNS)
         writer.writeheader()
         writer.writerows(rows)
+
+
+# ---------------------------------------------------------------------------
+# Adapter for the richer expert annotation workbook (.xlsx)
+# ---------------------------------------------------------------------------
+
+_OPERATOR_MAP = {
+    "≤": "<=", "<=": "<=", "=<": "<=", "≥": ">=", ">=": ">=",
+    "=>": ">=", "<": "<", ">": ">", "=": "=", "==": "=", "range": "range",
+}
+
+
+def _expert_operator(value):
+    if value is None:
+        return None
+    s = str(value).strip()
+    if s.lower() in ("", "n/a", "na", "none", "-"):
+        return None
+    return _OPERATOR_MAP.get(s) or _OPERATOR_MAP.get(s.lower())
+
+
+def _expert_value(value):
+    """Parse a limit value, taking the lower bound of a range (e.g. 6.0-9.0)."""
+    if value is None:
+        return None
+    s = str(value).strip().replace(",", "")
+    if not s:
+        return None
+    first = re.split(r"\s*(?:–|—|--|-|to)\s*", s)[0]
+    m = re.search(r"-?\d+(?:\.\d+)?", first)
+    return float(m.group()) if m else None
+
+
+def _find_col(header, *substrings):
+    for i, h in enumerate(header):
+        hl = (str(h) if h is not None else "").lower()
+        if any(sub in hl for sub in substrings):
+            return i
+    return None
+
+
+def goldset_from_expert_xlsx(path, sheet_name, *, permit_id, source_pdf="",
+                             provenance="EXPERT_SINGLE", labeler="", notes=""):
+    """Convert an expert annotation workbook sheet into a validated GoldSet.
+
+    Maps the richer expert columns (Obligation ID, Source quote, Citation,
+    Parameter, Operator, Limit value, Unit, Frequency/deadline, ...) onto the
+    GoldObligation schema. The verbatim source quote becomes the description so
+    narrative obligations can still be matched.
+    """
+    import openpyxl  # local import; only needed for the expert workbook path
+
+    ws = openpyxl.load_workbook(path, data_only=True)[sheet_name]
+    rows = [r for r in ws.iter_rows(values_only=True)]
+    if not rows:
+        raise ValueError("Sheet '%s' is empty." % sheet_name)
+    header = list(rows[0])
+    idx = {
+        "gold_id": _find_col(header, "obligation id"),
+        "quote": _find_col(header, "source quote", "quote"),
+        "citation": _find_col(header, "citation"),
+        "parameter": _find_col(header, "parameter"),
+        "operator": _find_col(header, "operator"),
+        "value": _find_col(header, "limit value", "value"),
+        "unit": _find_col(header, "unit"),
+        "frequency": _find_col(header, "frequency", "deadline"),
+    }
+    if idx["gold_id"] is None:
+        raise ValueError("Could not find an 'Obligation ID' column in sheet '%s'." % sheet_name)
+
+    def cell(row, key):
+        i = idx[key]
+        if i is None or i >= len(row):
+            return None
+        v = row[i]
+        return None if v is None or str(v).strip() == "" else str(v).strip()
+
+    obligations: List[GoldObligation] = []
+    for row in rows[1:]:
+        gid = cell(row, "gold_id")
+        if not gid:
+            continue
+        raw_value = row[idx["value"]] if idx["value"] is not None and idx["value"] < len(row) else None
+        raw_op = row[idx["operator"]] if idx["operator"] is not None and idx["operator"] < len(row) else None
+        obligations.append(GoldObligation(
+            gold_id=gid,
+            description=cell(row, "quote") or "",
+            parameter=cell(row, "parameter"),
+            limit_value=_expert_value(raw_value),
+            limit_unit=cell(row, "unit"),
+            operator=_expert_operator(raw_op),
+            frequency=cell(row, "frequency"),
+            citation=cell(row, "citation"),
+        ))
+    if not obligations:
+        raise ValueError("No labeled obligations found in sheet '%s'." % sheet_name)
+    return GoldSet(
+        permit_id=permit_id,
+        source_pdf=source_pdf or None,
+        label_provenance=LabelProvenance(provenance),
+        labeler=labeler,
+        notes=notes,
+        obligations=obligations,
+    )
 
 
 def main(argv=None) -> int:

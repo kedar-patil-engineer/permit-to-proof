@@ -14,10 +14,10 @@ import requests
 
 from app.core.schema import Obligation, Segment
 from app.llm.base import (
+    DEFAULT_BATCH_SIZE,
     SYSTEM_PROMPT,
     build_user_prompt,
-    extract_json_object,
-    parse_obligations_payload,
+    run_batched_extraction,
 )
 
 DEFAULT_MODEL = "llama3.1"
@@ -32,10 +32,11 @@ class OllamaBackend:
     DEFAULT_HOST = DEFAULT_HOST
 
     def __init__(self, model: str = DEFAULT_MODEL, host: str | None = None,
-                 timeout: float = 120.0):
+                 timeout: float = 120.0, batch_size: int = DEFAULT_BATCH_SIZE):
         self.model = model or DEFAULT_MODEL
         self.host = (host or os.environ.get("OLLAMA_HOST") or DEFAULT_HOST).rstrip("/")
         self.timeout = timeout
+        self.batch_size = batch_size
 
     @staticmethod
     def is_available(host: str | None = None) -> bool:
@@ -48,31 +49,30 @@ class OllamaBackend:
             return False
 
     def extract_obligations(self, segments: List[Segment]) -> List[Obligation]:
-        prompt = build_user_prompt(segments)
-        try:
-            resp = requests.post(
-                self.host + "/api/chat",
-                json={
-                    "model": self.model,
-                    "format": "json",
-                    "stream": False,
-                    "options": {"temperature": 0},
-                    "messages": [
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": prompt},
-                    ],
-                },
-                timeout=self.timeout,
-            )
-        except requests.RequestException as exc:
-            raise RuntimeError(
-                "Could not reach Ollama at %s. Is it running? (%s)" % (self.host, exc)
-            ) from exc
+        def call(batch):
+            try:
+                resp = requests.post(
+                    self.host + "/api/chat",
+                    json={
+                        "model": self.model,
+                        "format": "json",
+                        "stream": False,
+                        "options": {"temperature": 0},
+                        "messages": [
+                            {"role": "system", "content": SYSTEM_PROMPT},
+                            {"role": "user", "content": build_user_prompt(batch)},
+                        ],
+                    },
+                    timeout=self.timeout,
+                )
+            except requests.RequestException as exc:
+                raise RuntimeError(
+                    "Could not reach Ollama at %s. Is it running? (%s)" % (self.host, exc)
+                ) from exc
+            if resp.status_code != 200:
+                raise RuntimeError(
+                    "Ollama returned HTTP %d: %s" % (resp.status_code, resp.text[:200])
+                )
+            return resp.json().get("message", {}).get("content", "")
 
-        if resp.status_code != 200:
-            raise RuntimeError(
-                "Ollama returned HTTP %d: %s" % (resp.status_code, resp.text[:200])
-            )
-        content = resp.json().get("message", {}).get("content", "")
-        payload = extract_json_object(content)
-        return parse_obligations_payload(payload, segments, id_prefix="OLL")
+        return run_batched_extraction(segments, call, "OLL", self.batch_size)
