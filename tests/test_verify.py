@@ -61,6 +61,15 @@ def test_normalize_unit_strips_reference_conditions():
     # equivalent flow units
     assert normalize_unit("gal/min") == "gpm"
     assert normalize_unit("gallons per minute") == "gpm"
+    # a pollutant label inside the unit is not part of the dimensional unit
+    assert normalize_unit("lb SO2/MMBtu") == "lb/mmbtu"
+    assert normalize_unit("lb/MMBtu") == "lb/mmbtu"
+
+
+def test_smoke_parameter_is_known():
+    from app.core.verify import lookup_parameter
+    assert lookup_parameter("Ringelmann") is not None
+    assert lookup_parameter("smoke").canonical == "Smoke"
 
 
 def test_grounding_exact():

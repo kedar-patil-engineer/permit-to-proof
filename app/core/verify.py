@@ -182,6 +182,7 @@ def normalize_unit(unit: Optional[str]) -> str:
     u = u.replace("µ", "u").replace("μ", "u").replace(".", "")
     u = re.sub(r"@\s*\d+(?:\.\d+)?\s*%?\s*o\s*2?\b", " ", u)   # @3% O2 basis
     u = re.sub(r"\bcorrected to[^,;|]*", " ", u)
+    u = re.sub(r"\blb\s+[a-z0-9]+\s*/\s*mmbtu\b", "lb/mmbtu", u)  # lb SO2/MMBtu
     u = re.sub(r"\s+", " ", u).strip()
     return _UNIT_ALIASES.get(u, u)
 
@@ -279,6 +280,10 @@ _PARAMETERS: Tuple[ParameterSpec, ...] = (
        {"%"},
        {"%": (0, 100)},
        "opacity"),
+    _p("Smoke", "air",
+       {"ringelmann", ""},
+       {"ringelmann": (0, 5)},
+       "smoke", "ringelmann", "smoke density"),
     _p("pH", "water",
        {"su", ""},
        {"su": (0, 14), "": (0, 14)},

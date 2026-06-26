@@ -94,6 +94,13 @@ def build_user_prompt(segments: List[Segment]) -> str:
         "limit_value, limit_unit, and operator. When a row shows a pollutant and "
         "a limit like 'sulfur dioxide | 1.2 lb/MMBtu', emit one obligation with "
         "parameter 'SO2', limit_value 1.2, limit_unit 'lb/MMBtu', operator '<='.",
+        "- Operator: an emission or effluent limit given as a plain value with no "
+        "explicit comparison word is a not-to-exceed maximum, so use '<='. Use "
+        "'>=' only for a stated minimum (a control or removal efficiency, "
+        "dissolved oxygen, 'at least', 'no less than', 'shall not fall below'), "
+        "'range' for 'between X and Y', and '=' only when the permit says exactly.",
+        "- Keep the unit and value exactly as written; copy the supporting row "
+        "into source_quote so it can be checked.",
         "",
         "PERMIT SEGMENTS:",
     ]
