@@ -53,6 +53,16 @@ def test_normalize_unit_handles_periods_and_aliases():
     assert normalize_unit("tons per year") == "tons/yr"
 
 
+def test_normalize_unit_strips_reference_conditions():
+    # the oxygen-correction basis is not part of the unit
+    assert normalize_unit("ppmvd @3% O2") == "ppmvd"
+    assert normalize_unit("ppmvd @ 3% O2") == "ppmvd"
+    assert normalize_unit("ppm corrected to 7% O2") == "ppm"
+    # equivalent flow units
+    assert normalize_unit("gal/min") == "gpm"
+    assert normalize_unit("gallons per minute") == "gpm"
+
+
 def test_grounding_exact():
     mt, strength = grounding_match("30 ppm", "the limit is 30 ppm here")
     assert mt is MatchType.EXACT

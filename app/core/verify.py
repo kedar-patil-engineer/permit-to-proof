@@ -170,11 +170,18 @@ def grounding_match(quote: str, segment_text: str) -> Tuple[MatchType, float]:
 
 
 def normalize_unit(unit: Optional[str]) -> str:
-    """Map a free text unit to a canonical normalized form."""
+    """Map a free text unit to a canonical normalized form.
+
+    Reference-condition qualifiers (oxygen correction such as "@3% O2", dry/wet
+    basis) describe how a value is measured, not the unit itself, so they are
+    stripped before matching: "ppmvd @3% O2" and "ppmvd" are the same unit.
+    """
     if not unit:
         return ""
     u = unit.strip().lower()
     u = u.replace("µ", "u").replace("μ", "u").replace(".", "")
+    u = re.sub(r"@\s*\d+(?:\.\d+)?\s*%?\s*o\s*2?\b", " ", u)   # @3% O2 basis
+    u = re.sub(r"\bcorrected to[^,;|]*", " ", u)
     u = re.sub(r"\s+", " ", u).strip()
     return _UNIT_ALIASES.get(u, u)
 
@@ -201,6 +208,8 @@ _UNIT_ALIASES: Dict[str, str] = {
     "degrees c": "deg c", "celsius": "deg c", "deg celsius": "deg c",
     "deg f": "deg f", "degf": "deg f", "f": "deg f", "fahrenheit": "deg f",
     "mgd": "mgd", "million gallons per day": "mgd",
+    "gpm": "gpm", "gal/min": "gpm", "gallons/minute": "gpm",
+    "gallons per minute": "gpm",
     "cfu/100ml": "cfu/100ml", "cfu/100 ml": "cfu/100ml",
     "#/100ml": "cfu/100ml", "mpn/100ml": "cfu/100ml", "col/100ml": "cfu/100ml",
 }
