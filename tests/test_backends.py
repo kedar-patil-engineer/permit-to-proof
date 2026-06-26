@@ -179,6 +179,19 @@ def test_openai_real_call_optin():
     assert isinstance(obs, list)
 
 
+def test_openai_cost_estimate_matches_pricing():
+    b = OpenAIBackend(model="gpt-4o-mini")
+    # 1M input @ $0.15 + 1M output @ $0.60 = $0.75
+    cost = b._estimate_cost({"prompt_tokens": 1_000_000,
+                             "completion_tokens": 1_000_000})
+    assert cost == pytest.approx(0.75)
+    # unknown model prices to zero rather than crashing
+    assert OpenAIBackend(model="made-up")._estimate_cost(
+        {"prompt_tokens": 100, "completion_tokens": 100}) == 0.0
+    # stats start empty until a run populates them
+    assert b.last_run_stats == {}
+
+
 def test_ollama_backend_imports_and_reports_availability():
     assert isinstance(OllamaBackend.is_available(), bool)
     backend = OllamaBackend()

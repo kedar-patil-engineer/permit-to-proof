@@ -10,6 +10,7 @@ response becomes flagged data rather than a crash.
 from __future__ import annotations
 
 import os
+import time
 from typing import List
 
 from app.core.schema import Obligation, Segment
@@ -21,6 +22,13 @@ from app.llm.base import (
 )
 
 DEFAULT_MODEL = "gpt-4o-mini"
+
+# USD per 1M tokens, by model. Used only to turn measured token counts into a
+# reported cost for the paper's cost/latency table; never affects extraction.
+PRICING_PER_MTOK = {
+    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    "gpt-4o": {"input": 2.50, "output": 10.00},
+}
 
 
 class OpenAIBackend:
@@ -34,6 +42,9 @@ class OpenAIBackend:
         self.model = model or DEFAULT_MODEL
         self._api_key = api_key or os.environ.get("OPENAI_API_KEY")
         self.batch_size = batch_size
+        # Populated by extract_obligations so callers (the eval harness) can
+        # report real cost/latency for the paper instead of estimates.
+        self.last_run_stats: dict = {}
 
     @staticmethod
     def is_available() -> bool:
@@ -61,6 +72,8 @@ class OpenAIBackend:
 
     def extract_obligations(self, segments: List[Segment]) -> List[Obligation]:
         client = self._client()
+        stats = {"calls": 0, "prompt_tokens": 0, "completion_tokens": 0,
+                 "total_tokens": 0}
 
         def call(batch):
             response = client.chat.completions.create(
@@ -72,6 +85,28 @@ class OpenAIBackend:
                     {"role": "user", "content": build_user_prompt(batch)},
                 ],
             )
+            stats["calls"] += 1
+            usage = getattr(response, "usage", None)
+            if usage is not None:
+                stats["prompt_tokens"] += getattr(usage, "prompt_tokens", 0) or 0
+                stats["completion_tokens"] += getattr(usage, "completion_tokens", 0) or 0
+                stats["total_tokens"] += getattr(usage, "total_tokens", 0) or 0
             return response.choices[0].message.content or ""
 
-        return run_batched_extraction(segments, call, "OAI", self.batch_size)
+        start = time.perf_counter()
+        obligations = run_batched_extraction(segments, call, "OAI", self.batch_size)
+        stats["latency_seconds"] = round(time.perf_counter() - start, 3)
+        stats["model"] = self.model
+        stats["n_segments"] = len(segments)
+        stats["n_obligations"] = len(obligations)
+        stats["estimated_cost_usd"] = self._estimate_cost(stats)
+        self.last_run_stats = stats
+        return obligations
+
+    def _estimate_cost(self, stats: dict) -> float:
+        price = PRICING_PER_MTOK.get(self.model)
+        if not price:
+            return 0.0
+        cost = (stats["prompt_tokens"] / 1_000_000) * price["input"] + \
+               (stats["completion_tokens"] / 1_000_000) * price["output"]
+        return round(cost, 6)

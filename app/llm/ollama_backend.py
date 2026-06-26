@@ -8,6 +8,7 @@ never blocks the app or the offline test suite (Part B7, B11).
 from __future__ import annotations
 
 import os
+import time
 from typing import List
 
 import requests
@@ -37,6 +38,9 @@ class OllamaBackend:
         self.host = (host or os.environ.get("OLLAMA_HOST") or DEFAULT_HOST).rstrip("/")
         self.timeout = timeout
         self.batch_size = batch_size
+        # Latency/throughput for the local-vs-hosted comparison. Local runs are
+        # free, so cost is reported as zero rather than a token price.
+        self.last_run_stats: dict = {}
 
     @staticmethod
     def is_available(host: str | None = None) -> bool:
@@ -49,7 +53,10 @@ class OllamaBackend:
             return False
 
     def extract_obligations(self, segments: List[Segment]) -> List[Obligation]:
+        stats = {"calls": 0, "total_tokens": 0}
+
         def call(batch):
+            stats["calls"] += 1
             try:
                 resp = requests.post(
                     self.host + "/api/chat",
@@ -73,6 +80,18 @@ class OllamaBackend:
                 raise RuntimeError(
                     "Ollama returned HTTP %d: %s" % (resp.status_code, resp.text[:200])
                 )
-            return resp.json().get("message", {}).get("content", "")
+            body = resp.json()
+            ev = body.get("eval_count", 0) or 0
+            pv = body.get("prompt_eval_count", 0) or 0
+            stats["total_tokens"] += ev + pv
+            return body.get("message", {}).get("content", "")
 
-        return run_batched_extraction(segments, call, "OLL", self.batch_size)
+        start = time.perf_counter()
+        obligations = run_batched_extraction(segments, call, "OLL", self.batch_size)
+        stats["latency_seconds"] = round(time.perf_counter() - start, 3)
+        stats["model"] = self.model
+        stats["n_segments"] = len(segments)
+        stats["n_obligations"] = len(obligations)
+        stats["estimated_cost_usd"] = 0.0  # local inference is free
+        self.last_run_stats = stats
+        return obligations
