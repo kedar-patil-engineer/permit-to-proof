@@ -93,6 +93,17 @@ def test_verification_lift_counts(runs, gold):
 
 # --- calibration ----------------------------------------------------------
 
+def test_near_miss_analysis_categorizes(runs, gold):
+    on, _ = runs
+    nm = M.near_miss_analysis(on.obligations, gold)
+    s = nm["summary"]
+    assert set(s) == {"matched", "operator_mismatch", "unit_mismatch", "not_extracted"}
+    assert sum(s.values()) == len(gold.obligations)
+    assert len(nm["details"]) == len(gold.obligations)
+    # the synthetic sample is clean, so most should match
+    assert s["matched"] >= 1
+
+
 def test_calibration_bounds_and_binning(runs, gold):
     on, _ = runs
     cal = M.calibration(on.obligations, gold, n_bins=10)

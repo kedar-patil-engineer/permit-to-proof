@@ -138,6 +138,52 @@ def match_extractions(extracted: List[Obligation], gold: GoldSet) -> MatchResult
     return MatchResult(records, tp, fp, fn, matched_ext)
 
 
+def near_miss_analysis(extracted: List[Obligation], gold: GoldSet) -> Dict:
+    """Explain WHY each gold obligation did not get a full match.
+
+    Beyond the TP/FP/FN counts, this categorizes every unmatched gold as found
+    with a wrong operator, found with a different unit, or not extracted at all,
+    so the paper's error analysis is precise and honest rather than lumping all
+    misses together.
+    """
+    mr = match_extractions(extracted, gold)
+    matched = {r.gold_id for r in mr.records if r.outcome == "TP"}
+    summary = {"matched": 0, "operator_mismatch": 0, "unit_mismatch": 0,
+               "not_extracted": 0}
+    details = []
+    for g in gold.obligations:
+        if g.gold_id in matched:
+            summary["matched"] += 1
+            details.append({"gold_id": g.gold_id, "category": "matched"})
+            continue
+        cand = None
+        if g.limit_value is not None:
+            for o in extracted:
+                if o.limit_value is None:
+                    continue
+                if _norm_param(o.parameter) == _norm_param(g.parameter) and \
+                        abs(o.limit_value - g.limit_value) <= max(1e-9, 0.03 * abs(g.limit_value)):
+                    cand = o
+                    break
+        if cand is None:
+            category = "not_extracted"
+        elif normalize_unit(cand.limit_unit) != normalize_unit(g.limit_unit):
+            category = "unit_mismatch"
+        elif g.operator is not None and _op_family(cand.operator) != _op_family(g.operator):
+            category = "operator_mismatch"
+        else:
+            category = "not_extracted"
+        summary[category] += 1
+        rec = {"gold_id": g.gold_id, "category": category}
+        if cand is not None:
+            rec["model"] = {"parameter": cand.parameter, "limit_value": cand.limit_value,
+                            "limit_unit": cand.limit_unit,
+                            "operator": cand.operator.value if cand.operator else None,
+                            "status": cand.status.value}
+        details.append(rec)
+    return {"summary": summary, "details": details}
+
+
 def extraction_prf(mr: MatchResult) -> Dict:
     p = mr.tp / (mr.tp + mr.fp) if (mr.tp + mr.fp) else 0.0
     r = mr.tp / (mr.tp + mr.fn) if (mr.tp + mr.fn) else 0.0
@@ -313,6 +359,7 @@ def evaluate_all(on, off, gold: GoldSet, *, n_bins: int = 10,
         "n_obligations": len(on.obligations),
         "n_gold": len(gold.obligations),
         "extraction": extraction_prf(mr),
+        "near_miss": near_miss_analysis(on.obligations, gold),
         "verification_lift": verification_lift(on, off, gold),
         "calibration": calibration(on.obligations, gold, n_bins=n_bins),
         "calibration_raw": calibration(on.obligations, gold, n_bins=n_bins,
