@@ -52,6 +52,21 @@ def _markdown(r: Dict) -> str:
     lines.append("| %.3f | %.3f | %.3f | %d | %d | %d |\n" % (
         ex["precision"], ex["recall"], ex["f1"], ex["tp"], ex["fp"], ex["fn"]))
 
+    nm = r.get("near_miss")
+    if nm:
+        s = nm["summary"]
+        lines.append("\n## 1b. Near-miss breakdown (why gold limits missed)\n")
+        lines.append("| Matched | Operator mismatch | Unit mismatch | Not extracted |\n"
+                     "|---|---|---|---|\n")
+        lines.append("| %d | %d | %d | %d |\n" % (
+            s["matched"], s["operator_mismatch"], s["unit_mismatch"],
+            s["not_extracted"]))
+        lines.append("\nA limit counted as a *miss* in section 1 is broken out here: "
+                     "found with the wrong operator, found with a different but "
+                     "possibly equivalent unit, or genuinely not extracted. Only the "
+                     "last is a recall gap; the first two are scoring-strictness "
+                     "effects worth reporting separately.\n")
+
     lines.append("\n## 2. Verification lift (errors caught ON vs OFF)\n")
     lines.append("- True errors in the extraction set: **%d**\n" % vl["n_true_errors"])
     lines.append("- Error-detection recall: **ON %.3f** vs OFF %.3f  ->  "
