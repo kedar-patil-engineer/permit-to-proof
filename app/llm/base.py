@@ -262,16 +262,26 @@ def run_batched_extraction(segments, call, id_prefix, batch_size=DEFAULT_BATCH_S
     raw text response for that batch. Each batch is parsed defensively and the
     obligations are concatenated. A batch that fails to parse contributes
     nothing rather than crashing the whole run.
+
+    Tables are grouped into their own, smaller batches so a dense emission-limit
+    table is not buried among prose segments and gets the model's full
+    attention. Obligation ids stay unique across batches.
     """
     obligations: List[Obligation] = []
     size = max(1, int(batch_size))
-    for start in range(0, len(segments), size):
-        batch = segments[start : start + size]
-        content = call(batch) or ""
-        payload = extract_json_object(content)
-        obligations.extend(
-            parse_obligations_payload(
-                payload, batch, id_prefix=id_prefix, start_index=len(obligations)
+    table_size = max(2, size // 3)
+
+    prose = [s for s in segments if not (getattr(s, "text", "") or "").startswith("TABLE:")]
+    tables = [s for s in segments if (getattr(s, "text", "") or "").startswith("TABLE:")]
+
+    for group, group_size in ((prose, size), (tables, table_size)):
+        for start in range(0, len(group), group_size):
+            batch = group[start : start + group_size]
+            content = call(batch) or ""
+            payload = extract_json_object(content)
+            obligations.extend(
+                parse_obligations_payload(
+                    payload, batch, id_prefix=id_prefix, start_index=len(obligations)
+                )
             )
-        )
     return obligations

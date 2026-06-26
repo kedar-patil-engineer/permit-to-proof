@@ -120,6 +120,23 @@ def test_run_batched_extraction_batches_and_unique_ids():
     assert ids[0] == "OAI0000" and ids[-1] == "OAI0005"
 
 
+def test_run_batched_extraction_groups_tables_separately():
+    prose = [Segment(segment_id="P%d" % i, text="condition %d applies" % i,
+                     page=1, start_char=0, end_char=5) for i in range(5)]
+    tables = [Segment(segment_id="T%d" % i, text="TABLE:\nrow %d" % i,
+                      page=1, start_char=0, end_char=5) for i in range(4)]
+    segs = [prose[0], tables[0], prose[1], tables[1], prose[2], prose[3],
+            prose[4], tables[2], tables[3]]  # interleaved
+    seen = []
+    def call(batch):
+        seen.append([s.segment_id for s in batch])
+        return json.dumps({"obligations": []})
+    run_batched_extraction(segs, call, "X", batch_size=6)
+    # prose batched at 6 (one batch of 5), tables at 2 (two batches of 2)
+    assert all(not bid.startswith("T") for bid in seen[0])      # first batch: prose only
+    assert any(b and all(bid.startswith("T") for bid in b) for b in seen)  # a table-only batch
+
+
 def test_run_batched_extraction_survives_a_bad_batch():
     segs = _segments() * 2  # four segments, batch size two -> two calls
     state = {"n": 0}
