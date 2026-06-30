@@ -188,22 +188,30 @@ def _param_compatible(a: Optional[str], b: Optional[str]) -> bool:
     """True if two parameter labels plausibly name the same quantity.
 
     Canonical equality first (the verifier's synonym map), then a fuzzy fallback
-    on the raw labels for synonyms the map does not know. Used only AFTER value
-    and unit already match, so it cannot fabricate a match between genuinely
-    different limits; it only decides whether the parameter LABEL is close enough
-    to confirm the same fact.
+    on the raw labels for descriptive synonyms the map does not know. Used only
+    after value and unit already match.
+
+    The fuzzy fallback is deliberately restricted to longer descriptive labels.
+    Short formula-like labels (NOx, CO, CO2, SO2, SO3, BOD, COD, TSS, TDS) name
+    distinct pollutants that differ by a single character or digit, so substring
+    or character-ratio comparison would wrongly equate them; for these only
+    canonical equality counts.
     """
     if _norm_param(a) == _norm_param(b):
         return True
     na, nb = normalize_text(a or ""), normalize_text(b or "")
     if not na or not nb:
         return False
+    # Short, formula-like labels must match canonically, never fuzzily.
+    if len(na.replace(" ", "")) <= 4 or len(nb.replace(" ", "")) <= 4:
+        return False
     if na in nb or nb in na:
         return True
-    if difflib.SequenceMatcher(None, na, nb).ratio() >= 0.5:
+    if difflib.SequenceMatcher(None, na, nb).ratio() >= 0.6:
         return True
     ta, tb = set(na.split()), set(nb.split())
-    return bool(ta & tb) and len(ta & tb) / len(ta | tb) >= 0.34
+    shared = {t for t in (ta & tb) if len(t) >= 4}  # a substantive shared word
+    return bool(shared) and len(ta & tb) / len(ta | tb) >= 0.4
 
 
 def limit_detection_metrics(extracted: List[Obligation], gold: GoldSet) -> Dict:

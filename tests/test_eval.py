@@ -122,6 +122,11 @@ def test_param_compatible_guards_against_cross_pollutant():
     assert M._param_compatible("Cl2", "chlorine") is True
     assert M._param_compatible("NOx", "SO2") is False
     assert M._param_compatible("opacity", "particulate matter") is False
+    # short formula-like labels must not match fuzzily (distinct pollutants)
+    assert M._param_compatible("CO", "CO2") is False
+    assert M._param_compatible("SO2", "SO3") is False
+    assert M._param_compatible("BOD", "COD") is False
+    assert M._param_compatible("TSS", "TDS") is False
 
 
 def test_calibration_bounds_and_binning(runs, gold):
