@@ -183,6 +183,11 @@ def normalize_unit(unit: Optional[str]) -> str:
     u = re.sub(r"@\s*\d+(?:\.\d+)?\s*%?\s*o\s*2?\b", " ", u)   # @3% O2 basis
     u = re.sub(r"\bcorrected to[^,;|]*", " ", u)
     u = re.sub(r"\blb\s+[a-z0-9]+\s*/\s*mmbtu\b", "lb/mmbtu", u)  # lb SO2/MMBtu
+    # A percent with a descriptive qualifier ("% opacity", "% sulfur by weight")
+    # is still the unit "%"; the qualifier names what is measured, which the
+    # parameter already distinguishes. Collapse it so "percent" and "% opacity"
+    # match. Plain "%" is untouched (the qualifier must be a following word).
+    u = re.sub(r"^%\s+[a-z].*$", "%", u)
     u = re.sub(r"\s+", " ", u).strip()
     return _UNIT_ALIASES.get(u, u)
 
@@ -211,6 +216,7 @@ _UNIT_ALIASES: Dict[str, str] = {
     "mgd": "mgd", "million gallons per day": "mgd",
     "gpm": "gpm", "gal/min": "gpm", "gallons/minute": "gpm",
     "gallons per minute": "gpm",
+    "g/l": "g/l", "g/ l": "g/l", "grams per liter": "g/l", "gpl": "g/l",
     "cfu/100ml": "cfu/100ml", "cfu/100 ml": "cfu/100ml",
     "#/100ml": "cfu/100ml", "mpn/100ml": "cfu/100ml", "col/100ml": "cfu/100ml",
 }
@@ -279,7 +285,20 @@ _PARAMETERS: Tuple[ParameterSpec, ...] = (
     _p("Opacity", "air",
        {"%"},
        {"%": (0, 100)},
-       "opacity"),
+       "opacity", "visible emissions", "opacity / visible emissions"),
+    _p("Chlorine", "air",
+       {"ppm", "lb/hr", "tons/yr", "lb/day"},
+       {"ppm": (0, 5000), "lb/hr": (0, 5000), "tons/yr": (0, 100000),
+        "lb/day": (0, 100000)},
+       "chlorine", "cl2", "chlorine gas", "total chlorine"),
+    _p("Sulfur", "air",
+       {"%", "ppm"},
+       {"%": (0, 100), "ppm": (0, 1000000)},
+       "sulfur", "sulphur", "sulfur in fuel", "fuel sulfur", "sulfur content"),
+    _p("Caustic", "water",
+       {"g/l", "%", "mg/l"},
+       {"g/l": (0, 1000), "%": (0, 100), "mg/l": (0, 1000000)},
+       "caustic", "sodium hydroxide", "naoh", "caustic soda"),
     _p("Smoke", "air",
        {"ringelmann", ""},
        {"ringelmann": (0, 5)},

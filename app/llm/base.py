@@ -99,6 +99,13 @@ def build_user_prompt(segments: List[Segment]) -> str:
         "'>=' only for a stated minimum (a control or removal efficiency, "
         "dissolved oxygen, 'at least', 'no less than', 'shall not fall below'), "
         "'range' for 'between X and Y', and '=' only when the permit says exactly.",
+        "- IMPORTANT negation rule: a prohibition is a MAXIMUM, not a minimum. "
+        "'shall not exceed X', 'shall not discharge ... more than X', 'shall not "
+        "emit more than X', 'no more than X', 'not greater than X', 'shall not "
+        "burn fuel containing more than X' all mean the value is capped at X, so "
+        "use '<=' (or '<' when the wording is strictly 'more than'). The words "
+        "'more than' or 'exceed' sitting after 'shall not' still mean a cap, "
+        "NEVER a minimum. Do not output '>=' or '>' for these.",
         "- Keep the unit and value exactly as written; copy the supporting row "
         "into source_quote so it can be checked.",
         "",
