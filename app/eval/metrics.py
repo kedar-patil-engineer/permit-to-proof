@@ -184,6 +184,71 @@ def near_miss_analysis(extracted: List[Obligation], gold: GoldSet) -> Dict:
     return {"summary": summary, "details": details}
 
 
+def _param_compatible(a: Optional[str], b: Optional[str]) -> bool:
+    """True if two parameter labels plausibly name the same quantity.
+
+    Canonical equality first (the verifier's synonym map), then a fuzzy fallback
+    on the raw labels for synonyms the map does not know. Used only AFTER value
+    and unit already match, so it cannot fabricate a match between genuinely
+    different limits; it only decides whether the parameter LABEL is close enough
+    to confirm the same fact.
+    """
+    if _norm_param(a) == _norm_param(b):
+        return True
+    na, nb = normalize_text(a or ""), normalize_text(b or "")
+    if not na or not nb:
+        return False
+    if na in nb or nb in na:
+        return True
+    if difflib.SequenceMatcher(None, na, nb).ratio() >= 0.5:
+        return True
+    ta, tb = set(na.split()), set(nb.split())
+    return bool(ta & tb) and len(ta & tb) / len(ta | tb) >= 0.34
+
+
+def limit_detection_metrics(extracted: List[Obligation], gold: GoldSet) -> Dict:
+    """The IE-standard decomposition for numeric limits: detection vs attribute
+    accuracy. Detection counts a numeric limit as found when an extraction has
+    the same value (within tolerance), the same unit, and a compatible parameter
+    label, regardless of operator. Of those detected, we then report how often
+    the operator is also correct. This separates "did we find the limit" from
+    "did we get every attribute exactly right", which the strict 4-way F1 folds
+    together.
+    """
+    gnum = [g for g in gold.obligations if g.limit_value is not None]
+    enum = sorted([e for e in extracted if e.limit_value is not None],
+                  key=lambda o: o.obligation_id)
+    used = set()
+    detected = 0
+    op_correct = 0
+    for g in gnum:
+        hit = None
+        for i, e in enumerate(enum):
+            if i in used:
+                continue
+            if not _value_match(e.limit_value, g.limit_value):
+                continue
+            if normalize_unit(e.limit_unit) != normalize_unit(g.limit_unit):
+                continue
+            if _param_compatible(e.parameter, g.parameter):
+                hit = i
+                break
+        if hit is not None:
+            used.add(hit)
+            detected += 1
+            e = enum[hit]
+            if g.operator is None or _op_family(e.operator) == _op_family(g.operator):
+                op_correct += 1
+    n = len(gnum)
+    return {
+        "n_numeric_gold": n,
+        "n_numeric_extracted": len(enum),
+        "detected": detected,
+        "detection_recall": (detected / n) if n else 0.0,
+        "operator_correct_given_detected": (op_correct / detected) if detected else 0.0,
+    }
+
+
 def extraction_prf(mr: MatchResult) -> Dict:
     p = mr.tp / (mr.tp + mr.fp) if (mr.tp + mr.fp) else 0.0
     r = mr.tp / (mr.tp + mr.fn) if (mr.tp + mr.fn) else 0.0
@@ -359,6 +424,7 @@ def evaluate_all(on, off, gold: GoldSet, *, n_bins: int = 10,
         "n_obligations": len(on.obligations),
         "n_gold": len(gold.obligations),
         "extraction": extraction_prf(mr),
+        "limit_detection": limit_detection_metrics(on.obligations, gold),
         "near_miss": near_miss_analysis(on.obligations, gold),
         "verification_lift": verification_lift(on, off, gold),
         "calibration": calibration(on.obligations, gold, n_bins=n_bins),

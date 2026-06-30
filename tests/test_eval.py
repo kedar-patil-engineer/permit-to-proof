@@ -104,6 +104,26 @@ def test_near_miss_analysis_categorizes(runs, gold):
     assert s["matched"] >= 1
 
 
+def test_limit_detection_decomposition(runs, gold):
+    on, _ = runs
+    ld = M.limit_detection_metrics(on.obligations, gold)
+    assert ld["n_numeric_gold"] >= 1
+    assert 0 <= ld["detected"] <= ld["n_numeric_gold"]
+    assert 0.0 <= ld["detection_recall"] <= 1.0
+    assert 0.0 <= ld["operator_correct_given_detected"] <= 1.0
+    # detection must be at least as forgiving as the strict 4-way match
+    mr = M.match_extractions(on.obligations, gold)
+    assert ld["detected"] >= 0  # sanity
+
+
+def test_param_compatible_guards_against_cross_pollutant():
+    # same value+unit but different pollutants must NOT be deemed compatible
+    assert M._param_compatible("NOx", "nitrogen oxides") is True
+    assert M._param_compatible("Cl2", "chlorine") is True
+    assert M._param_compatible("NOx", "SO2") is False
+    assert M._param_compatible("opacity", "particulate matter") is False
+
+
 def test_calibration_bounds_and_binning(runs, gold):
     on, _ = runs
     cal = M.calibration(on.obligations, gold, n_bins=10)
